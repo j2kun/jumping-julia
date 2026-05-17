@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jumping Julia - Tile Maze Game</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .grid {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            margin: 0 auto 30px;
+            pointer-events: none;
+        }
+
+        .tile {
+            position: fixed;
+            width: 115px;
+            height: 115px;
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3.5em;
+            font-weight: bold;
+            color: #333;
+            cursor: grab;
+            user-select: none;
+            pointer-events: auto;
+        }
+
+        .tile:hover {
+            border-color: #999;
+        }
+
+        .tile.dragging {
+            cursor: grabbing;
+            opacity: 0.8;
+            z-index: 1000;
+            transition: none;
+        }
+
+        .tile.start {
+            background: #90EE90;
+            border-color: #228B22;
+        }
+
+        .tile.goal {
+            background: #FFD700;
+            border-color: #FFA500;
+        }
+
+        .tile.start::before {
+            content: 'START';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            font-size: 0.3em;
+            color: #228B22;
+            font-weight: bold;
+        }
+
+        .tile.goal::after {
+            content: '★';
+            position: absolute;
+            font-size: 1.5em;
+            color: #FFA500;
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .button-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 6px;
+        }
+
+        button {
+            padding: 6px 12px;
+            font-size: 0.85em;
+            font-weight: 500;
+            border: 1.5px solid #333;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: white;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .puzzle-btn:hover {
+            background: #333;
+            color: white;
+        }
+
+        .reset-btn {
+            grid-column: 1 / -1;
+            border-color: #666;
+            color: #666;
+        }
+
+        .reset-btn:hover {
+            background: #666;
+            color: white;
+        }
+
+        .mode-btn {
+            border-color: #2196F3;
+            color: #2196F3;
+        }
+
+        .mode-btn:hover {
+            background: #2196F3;
+            color: white;
+        }
+
+        .mode-btn.active {
+            background: #2196F3;
+            color: white;
+        }
+
+        .path-btn {
+            border-color: #4CAF50;
+            color: #4CAF50;
+        }
+
+        .path-btn:hover {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .path-btn.active {
+            background: #4CAF50;
+            color: white;
+        }
+
+        body.arrow-mode .tile {
+            cursor: crosshair;
+        }
+
+        body.arrow-mode .tile.dragging {
+            cursor: crosshair;
+        }
+
+        body.path-mode .tile {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Jumping Julia</h1>
+        <p class="subtitle">Jump from start to goal! Numbers show how many tiles you can jump.</p>
+
+        <div class="grid" id="grid"></div>
+
+        <div class="controls">
+            <button class="mode-btn" id="modeBtn" onclick="toggleArrowMode()">Arrow Mode: OFF</button>
+            <button class="path-btn" id="pathBtn" onclick="togglePathMode()">Path Mode: OFF</button>
+            <div class="button-row">
+                <button class="puzzle-btn" onclick="loadPuzzle(1)">Puzzle 1</button>
+                <button class="puzzle-btn" onclick="loadPuzzle(2)">Puzzle 2</button>
+                <button class="puzzle-btn" onclick="loadPuzzle(3)">Puzzle 3</button>
+                <button class="puzzle-btn" onclick="loadPuzzle(4)">Puzzle 4</button>
+            </div>
+            <button class="reset-btn" onclick="resetTilePositions()">Reset Positions</button>
+            <button class="reset-btn" onclick="resetPuzzle()">Reset Puzzle</button>
+        </div>
+
+    <svg id="arrowSvg" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 500;">
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                <polygon points="0 0, 10 3, 0 6" fill="#333" />
+            </marker>
+            <marker id="arrowhead-green" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                <polygon points="0 0, 10 3, 0 6" fill="#4CAF50" />
+            </marker>
+        </defs>
+    </svg>
+    </div>
+
+    <script>
+        // Preset puzzles
+        const puzzles = {
+            1: [
+                [2, 1, 3, 3],
+                [2, 1, 3, 1],
+                [2, 2, 2, 2],
+                [1, 3, 2, 0]
+            ],
+            2: [
+                [1, 2, 1, 3],
+                [3, 1, 2, 1],
+                [1, 3, 1, 2],
+                [2, 1, 3, 0]
+            ],
+            3: [
+                [3, 1, 2, 1],
+                [1, 2, 3, 2],
+                [2, 1, 1, 3],
+                [1, 2, 1, 0]
+            ],
+            4: [
+                [2, 3, 1, 2],
+                [1, 1, 2, 3],
+                [3, 2, 1, 1],
+                [2, 1, 2, 0]
+            ]
+        };
+
+        let currentPuzzle = null;
+        let originalPuzzle = null;
+        let draggedTile = null;
+        let offsetX = 0;
+        let offsetY = 0;
+        let arrowMode = false;
+        let arrowStart = null;
+        let connections = [];  // Array of {from: tile, to: tile, line: svgElement}
+        let pathMode = false;
+        let pathTiles = [];  // Array of tiles in the current path
+        let pathConnections = [];  // Array of {from: tile, to: tile, line: svgElement} for path arrows
+        let tileOriginalPositions = new Map();  // Map of tile -> {left, top}
+
+        // Initialize with puzzle 1
+        function init() {
+            loadPuzzle(1);
+            setupDragListeners();
+        }
+
+        // Setup global drag listeners
+        function setupDragListeners() {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        // Load a preset puzzle
+        function loadPuzzle(puzzleNumber) {
+            currentPuzzle = puzzles[puzzleNumber].map(row => [...row]);
+            originalPuzzle = puzzles[puzzleNumber].map(row => [...row]);
+            renderGrid();
+        }
+
+        // Reset the current puzzle to its original state
+        function resetPuzzle() {
+            if (originalPuzzle) {
+                currentPuzzle = originalPuzzle.map(row => [...row]);
+                connections = [];
+                renderGrid();
+            }
+        }
+
+        // Toggle arrow drawing mode
+        function toggleArrowMode() {
+            arrowMode = !arrowMode;
+            arrowStart = null;
+
+            // Disable path mode if switching to arrow mode
+            if (arrowMode && pathMode) {
+                togglePathMode();
+            }
+
+            const modeBtn = document.getElementById('modeBtn');
+            if (arrowMode) {
+                document.body.classList.add('arrow-mode');
+                modeBtn.classList.add('active');
+                modeBtn.textContent = 'Arrow Mode: ON';
+            } else {
+                document.body.classList.remove('arrow-mode');
+                modeBtn.classList.remove('active');
+                modeBtn.textContent = 'Arrow Mode: OFF';
+            }
+        }
+
+        // Toggle path tracing mode
+        function togglePathMode() {
+            pathMode = !pathMode;
+
+            // Disable arrow mode if switching to path mode
+            if (pathMode && arrowMode) {
+                toggleArrowMode();
+            }
+
+            const pathBtn = document.getElementById('pathBtn');
+            if (pathMode) {
+                document.body.classList.add('path-mode');
+                pathBtn.classList.add('active');
+                pathBtn.textContent = 'Path Mode: ON';
+                pathTiles = [];
+                // Clear any existing path arrows
+                clearPathArrows();
+            } else {
+                document.body.classList.remove('path-mode');
+                pathBtn.classList.remove('active');
+                pathBtn.textContent = 'Path Mode: OFF';
+            }
+        }
+
+        // Clear path arrows
+        function clearPathArrows() {
+            pathConnections.forEach(conn => {
+                conn.line.remove();
+            });
+            pathConnections = [];
+        }
+
+        // Validate if a move from one tile to another is valid
+        function isValidMove(fromTile, toTile) {
+            const fromRow = parseInt(fromTile.dataset.row);
+            const fromCol = parseInt(fromTile.dataset.col);
+            const fromValue = parseInt(fromTile.dataset.value);
+            const toRow = parseInt(toTile.dataset.row);
+            const toCol = parseInt(toTile.dataset.col);
+
+            // Calculate the difference
+            const rowDiff = toRow - fromRow;
+            const colDiff = toCol - fromCol;
+
+            // Must be horizontal or vertical only (not diagonal)
+            if (rowDiff !== 0 && colDiff !== 0) {
+                return false;
+            }
+
+            // Calculate distance
+            const distance = Math.abs(rowDiff) + Math.abs(colDiff);
+
+            // Must match the jump value
+            return distance === fromValue;
+        }
+
+        // Reset tile positions to original grid layout
+        function resetTilePositions() {
+            tileOriginalPositions.forEach((pos, tile) => {
+                tile.style.left = pos.left;
+                tile.style.top = pos.top;
+
+                // Update arrows connected to this tile
+                updateArrowsForTile(tile);
+            });
+        }
+
+        // Render the grid
+        function renderGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+
+            // Remove any existing tiles from the body
+            document.querySelectorAll('.tile').forEach(tile => tile.remove());
+
+            // Clear all arrows (both regular and path)
+            const svg = document.getElementById('arrowSvg');
+            const lines = svg.querySelectorAll('line, path');
+            lines.forEach(line => line.remove());
+
+            // Clear position tracking
+            tileOriginalPositions.clear();
+            connections = [];
+            pathConnections = [];
+            pathTiles = [];
+
+            const tileSize = 115;
+            const gap = 10;
+
+            // Get grid position for initial tile placement
+            const gridRect = grid.getBoundingClientRect();
+
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 4; col++) {
+                    const tile = document.createElement('div');
+                    tile.className = 'tile';
+
+                    const value = currentPuzzle[row][col];
+
+                    // Store original grid position
+                    tile.dataset.row = row;
+                    tile.dataset.col = col;
+                    tile.dataset.value = value;
+
+                    // Calculate initial fixed position relative to viewport
+                    const left = gridRect.left + col * (tileSize + gap);
+                    const top = gridRect.top + row * (tileSize + gap);
+                    tile.style.left = left + 'px';
+                    tile.style.top = top + 'px';
+
+                    // Store original position
+                    tileOriginalPositions.set(tile, { left: left + 'px', top: top + 'px' });
+
+                    // Mark start and goal
+                    if (row === 0 && col === 0) {
+                        tile.classList.add('start');
+                        tile.textContent = value;
+                    } else if (row === 3 && col === 3) {
+                        tile.classList.add('goal');
+                        tile.textContent = '';  // Star will be shown via CSS
+                    } else {
+                        tile.textContent = value;
+                    }
+
+                    // Add event listeners
+                    tile.addEventListener('mousedown', handleMouseDown);
+                    tile.addEventListener('click', handleTileClick);
+
+                    document.body.appendChild(tile);
+                }
+            }
+        }
+
+        // Handle tile click for arrow drawing and path tracing
+        function handleTileClick(e) {
+            if (!arrowMode && !pathMode) return;
+            e.stopPropagation();
+
+            const tile = e.target;
+
+            if (arrowMode) {
+                // Arrow drawing mode
+                if (!arrowStart) {
+                    // Start drawing arrow
+                    arrowStart = tile;
+                    tile.style.boxShadow = '0 0 0 3px #2196F3';
+                } else if (arrowStart === tile) {
+                    // Cancel if clicking same tile
+                    arrowStart.style.boxShadow = '';
+                    arrowStart = null;
+                } else {
+                    // Complete the arrow
+                    createArrow(arrowStart, tile);
+                    arrowStart.style.boxShadow = '';
+                    arrowStart = null;
+                }
+            } else if (pathMode) {
+                // Path tracing mode
+                if (pathTiles.length === 0) {
+                    // Start the path
+                    pathTiles.push(tile);
+                    tile.style.boxShadow = '0 0 0 3px #4CAF50';
+                } else {
+                    const lastTile = pathTiles[pathTiles.length - 1];
+
+                    // Check if clicking the same tile (to undo)
+                    if (lastTile === tile) {
+                        // Remove the last tile from path
+                        tile.style.boxShadow = '';
+                        pathTiles.pop();
+
+                        // Remove the last arrow if there is one
+                        if (pathConnections.length > 0) {
+                            const lastConn = pathConnections.pop();
+                            lastConn.line.remove();
+                        }
+
+                        // Highlight the new last tile
+                        if (pathTiles.length > 0) {
+                            pathTiles[pathTiles.length - 1].style.boxShadow = '0 0 0 3px #4CAF50';
+                        }
+                    } else {
+                        // Validate the move
+                        if (isValidMove(lastTile, tile)) {
+                            // Add to path
+                            pathTiles.push(tile);
+                            lastTile.style.boxShadow = '';
+                            tile.style.boxShadow = '0 0 0 3px #4CAF50';
+
+                            // Draw green arrow
+                            createPathArrow(lastTile, tile);
+                        } else {
+                            // Invalid move - provide feedback
+                            tile.style.boxShadow = '0 0 0 3px #f44336';
+                            setTimeout(() => {
+                                tile.style.boxShadow = '';
+                            }, 300);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Handle mouse down on tile
+        function handleMouseDown(e) {
+            if (arrowMode || pathMode) return;  // Don't drag in arrow or path mode
+
+            e.preventDefault();
+            draggedTile = e.target;
+
+            const rect = draggedTile.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+
+            draggedTile.classList.add('dragging');
+        }
+
+        // Handle mouse move
+        function handleMouseMove(e) {
+            if (!draggedTile) return;
+
+            const newLeft = e.clientX - offsetX;
+            const newTop = e.clientY - offsetY;
+
+            draggedTile.style.left = newLeft + 'px';
+            draggedTile.style.top = newTop + 'px';
+
+            // Update any arrows connected to this tile
+            updateArrowsForTile(draggedTile);
+        }
+
+        // Handle mouse up
+        function handleMouseUp(e) {
+            if (!draggedTile) return;
+
+            draggedTile.classList.remove('dragging');
+            draggedTile = null;
+        }
+
+        // Calculate connection point on tile edge
+        function getConnectionPoint(fromTile, toTile) {
+            const fromRect = fromTile.getBoundingClientRect();
+            const toRect = toTile.getBoundingClientRect();
+
+            const fromCenter = {
+                x: fromRect.left + fromRect.width / 2,
+                y: fromRect.top + fromRect.height / 2
+            };
+
+            const toCenter = {
+                x: toRect.left + toRect.width / 2,
+                y: toRect.top + toRect.height / 2
+            };
+
+            // Calculate angle between centers
+            const dx = toCenter.x - fromCenter.x;
+            const dy = toCenter.y - fromCenter.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Normalized direction vector
+            const normDx = dx / dist;
+            const normDy = dy / dist;
+
+            const inset = 20;  // How far to extend into the tile
+
+            // Calculate intersection with fromTile edge and extend inward (away from destination)
+            const fromPoint = getEdgeIntersection(fromCenter, dx, dy, fromRect.width / 2, fromRect.height / 2);
+            fromPoint.x -= normDx * inset;
+            fromPoint.y -= normDy * inset;
+
+            // Calculate intersection with toTile edge (coming from opposite direction) and extend inward (away from source)
+            const toPoint = getEdgeIntersection(toCenter, -dx, -dy, toRect.width / 2, toRect.height / 2);
+            toPoint.x += normDx * inset;
+            toPoint.y += normDy * inset;
+
+            return { from: fromPoint, to: toPoint };
+        }
+
+        // Get intersection point with rectangle edge
+        function getEdgeIntersection(center, dx, dy, halfWidth, halfHeight) {
+            const angle = Math.atan2(dy, dx);
+
+            // Determine which edge the line intersects
+            const tanAngle = Math.abs(Math.tan(angle));
+            const rectRatio = halfHeight / halfWidth;
+
+            let x, y;
+
+            if (tanAngle > rectRatio) {
+                // Top or bottom edge
+                y = halfHeight * Math.sign(dy);
+                x = y / Math.tan(angle);
+            } else {
+                // Left or right edge
+                x = halfWidth * Math.sign(dx);
+                y = x * Math.tan(angle);
+            }
+
+            return {
+                x: center.x + x,
+                y: center.y + y
+            };
+        }
+
+        // Calculate curved path string
+        function getCurvedPath(fromPoint, toPoint) {
+            // Calculate midpoint
+            const midX = (fromPoint.x + toPoint.x) / 2;
+            const midY = (fromPoint.y + toPoint.y) / 2;
+
+            // Calculate perpendicular offset
+            const dx = toPoint.x - fromPoint.x;
+            const dy = toPoint.y - fromPoint.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Offset distance (arc height) - proportional to distance
+            const offset = Math.min(dist * 0.2, 40);
+
+            // Perpendicular vector (rotated 90 degrees)
+            const perpX = -dy / dist * offset;
+            const perpY = dx / dist * offset;
+
+            // Control point
+            const controlX = midX + perpX;
+            const controlY = midY + perpY;
+
+            // Create quadratic bezier curve path
+            return `M ${fromPoint.x},${fromPoint.y} Q ${controlX},${controlY} ${toPoint.x},${toPoint.y}`;
+        }
+
+        // Create an arrow between two tiles
+        function createArrow(fromTile, toTile) {
+            const svg = document.getElementById('arrowSvg');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+            path.setAttribute('stroke', '#333');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('marker-end', 'url(#arrowhead)');
+
+            const points = getConnectionPoint(fromTile, toTile);
+            const pathData = getCurvedPath(points.from, points.to);
+            path.setAttribute('d', pathData);
+
+            svg.appendChild(path);
+
+            connections.push({ from: fromTile, to: toTile, line: path });
+        }
+
+        // Create a path arrow (green) between two tiles
+        function createPathArrow(fromTile, toTile) {
+            const svg = document.getElementById('arrowSvg');
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+            path.setAttribute('stroke', '#4CAF50');
+            path.setAttribute('stroke-width', '3');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('marker-end', 'url(#arrowhead-green)');
+
+            const points = getConnectionPoint(fromTile, toTile);
+            const pathData = getCurvedPath(points.from, points.to);
+            path.setAttribute('d', pathData);
+
+            svg.appendChild(path);
+
+            pathConnections.push({ from: fromTile, to: toTile, line: path });
+        }
+
+        // Update arrows connected to a specific tile
+        function updateArrowsForTile(tile) {
+            // Update regular arrows
+            connections.forEach(conn => {
+                if (conn.from === tile || conn.to === tile) {
+                    const points = getConnectionPoint(conn.from, conn.to);
+                    const pathData = getCurvedPath(points.from, points.to);
+                    conn.line.setAttribute('d', pathData);
+                }
+            });
+
+            // Update path arrows
+            pathConnections.forEach(conn => {
+                if (conn.from === tile || conn.to === tile) {
+                    const points = getConnectionPoint(conn.from, conn.to);
+                    const pathData = getCurvedPath(points.from, points.to);
+                    conn.line.setAttribute('d', pathData);
+                }
+            });
+        }
+
+        // Initialize on page load
+        init();
+    </script>
+</body>
+</html>
