@@ -178,6 +178,21 @@
             color: white;
         }
 
+        .poison-btn {
+            border-color: #9C27B0;
+            color: #9C27B0;
+        }
+
+        .poison-btn:hover {
+            background: #9C27B0;
+            color: white;
+        }
+
+        .poison-btn.active {
+            background: #9C27B0;
+            color: white;
+        }
+
         body.arrow-mode .tile {
             cursor: crosshair;
         }
@@ -187,6 +202,10 @@
         }
 
         body.path-mode .tile {
+            cursor: pointer;
+        }
+
+        body.poison-mode .tile {
             cursor: pointer;
         }
     </style>
@@ -201,6 +220,7 @@
         <div class="controls">
             <button class="mode-btn" id="modeBtn" onclick="toggleArrowMode()">Arrow Mode: OFF</button>
             <button class="path-btn" id="pathBtn" onclick="togglePathMode()">Path Mode: OFF</button>
+            <button class="poison-btn" id="poisonBtn" onclick="togglePoisonMode()">Poison Mode: OFF</button>
             <div class="button-row">
                 <button class="puzzle-btn" onclick="loadPuzzle(1)">Puzzle 1</button>
                 <button class="puzzle-btn" onclick="loadPuzzle(2)">Puzzle 2</button>
@@ -264,6 +284,8 @@
         let pathTiles = [];  // Array of tiles in the current path
         let pathConnections = [];  // Array of {from: tile, to: tile, line: svgElement} for path arrows
         let tileOriginalPositions = new Map();  // Map of tile -> {left, top}
+        let poisonMode = false;
+        let poisonedTiles = new Set();  // Set of tiles that are poisoned
 
         // Initialize with puzzle 1
         function init() {
@@ -298,9 +320,12 @@
             arrowMode = !arrowMode;
             arrowStart = null;
 
-            // Disable path mode if switching to arrow mode
+            // Disable other modes if switching to arrow mode
             if (arrowMode && pathMode) {
                 togglePathMode();
+            }
+            if (arrowMode && poisonMode) {
+                togglePoisonMode();
             }
 
             const modeBtn = document.getElementById('modeBtn');
@@ -319,9 +344,12 @@
         function togglePathMode() {
             pathMode = !pathMode;
 
-            // Disable arrow mode if switching to path mode
+            // Disable other modes if switching to path mode
             if (pathMode && arrowMode) {
                 toggleArrowMode();
+            }
+            if (pathMode && poisonMode) {
+                togglePoisonMode();
             }
 
             const pathBtn = document.getElementById('pathBtn');
@@ -336,6 +364,30 @@
                 document.body.classList.remove('path-mode');
                 pathBtn.classList.remove('active');
                 pathBtn.textContent = 'Path Mode: OFF';
+            }
+        }
+
+        // Toggle poison mode
+        function togglePoisonMode() {
+            poisonMode = !poisonMode;
+
+            // Disable arrow and path modes if switching to poison mode
+            if (poisonMode && arrowMode) {
+                toggleArrowMode();
+            }
+            if (poisonMode && pathMode) {
+                togglePathMode();
+            }
+
+            const poisonBtn = document.getElementById('poisonBtn');
+            if (poisonMode) {
+                document.body.classList.add('poison-mode');
+                poisonBtn.classList.add('active');
+                poisonBtn.textContent = 'Poison Mode: ON';
+            } else {
+                document.body.classList.remove('poison-mode');
+                poisonBtn.classList.remove('active');
+                poisonBtn.textContent = 'Poison Mode: OFF';
             }
         }
 
@@ -400,6 +452,7 @@
             connections = [];
             pathConnections = [];
             pathTiles = [];
+            poisonedTiles.clear();
 
             const tileSize = 115;
             const gap = 10;
@@ -448,14 +501,32 @@
             }
         }
 
-        // Handle tile click for arrow drawing and path tracing
+        // Handle tile click for arrow drawing, path tracing, and poison mode
         function handleTileClick(e) {
-            if (!arrowMode && !pathMode) return;
+            if (!arrowMode && !pathMode && !poisonMode) return;
             e.stopPropagation();
 
             const tile = e.target;
 
-            if (arrowMode) {
+            if (poisonMode) {
+                // Poison mode - toggle skull emoji
+                const value = tile.dataset.value;
+
+                if (poisonedTiles.has(tile)) {
+                    // Remove poison
+                    poisonedTiles.delete(tile);
+                    // Restore original number
+                    if (tile.classList.contains('goal')) {
+                        tile.textContent = '';  // Goal shows star via CSS
+                    } else {
+                        tile.textContent = value;
+                    }
+                } else {
+                    // Add poison
+                    poisonedTiles.add(tile);
+                    tile.textContent = '☠️';
+                }
+            } else if (arrowMode) {
                 // Arrow drawing mode
                 if (!arrowStart) {
                     // Start drawing arrow
@@ -520,7 +591,7 @@
 
         // Handle mouse down on tile
         function handleMouseDown(e) {
-            if (arrowMode || pathMode) return;  // Don't drag in arrow or path mode
+            if (arrowMode || pathMode || poisonMode) return;  // Don't drag in arrow, path, or poison mode
 
             e.preventDefault();
             draggedTile = e.target;
