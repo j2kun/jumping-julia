@@ -193,6 +193,21 @@
             color: white;
         }
 
+        .drag-btn {
+            border-color: #FF9800;
+            color: #FF9800;
+        }
+
+        .drag-btn:hover {
+            background: #FF9800;
+            color: white;
+        }
+
+        .drag-btn.active {
+            background: #FF9800;
+            color: white;
+        }
+
         body.arrow-mode .tile {
             cursor: crosshair;
         }
@@ -218,6 +233,7 @@
         <div class="grid" id="grid"></div>
 
         <div class="controls">
+            <button class="drag-btn active" id="dragBtn" onclick="toggleDragMode()">Drag Mode: ON</button>
             <button class="mode-btn" id="modeBtn" onclick="toggleArrowMode()">Arrow Mode: OFF</button>
             <button class="path-btn" id="pathBtn" onclick="togglePathMode()">Path Mode: OFF</button>
             <button class="poison-btn" id="poisonBtn" onclick="togglePoisonMode()">Poison Mode: OFF</button>
@@ -277,6 +293,7 @@
         let draggedTile = null;
         let offsetX = 0;
         let offsetY = 0;
+        let dragMode = true;  // Default mode
         let arrowMode = false;
         let arrowStart = null;
         let connections = [];  // Array of {from: tile, to: tile, line: svgElement}
@@ -312,7 +329,48 @@
                 currentPuzzle = originalPuzzle.map(row => [...row]);
                 connections = [];
                 renderGrid();
+
+                // Switch to drag mode
+                if (!dragMode) {
+                    toggleDragMode();
+                }
             }
+        }
+
+        // Toggle drag mode
+        function toggleDragMode() {
+            if (dragMode) return; // Already in drag mode, do nothing
+
+            dragMode = true;
+
+            // Disable other modes
+            if (arrowMode) {
+                arrowMode = false;
+                arrowStart = null;
+                document.body.classList.remove('arrow-mode');
+                const modeBtn = document.getElementById('modeBtn');
+                modeBtn.classList.remove('active');
+                modeBtn.textContent = 'Arrow Mode: OFF';
+            }
+            if (pathMode) {
+                pathMode = false;
+                document.body.classList.remove('path-mode');
+                const pathBtn = document.getElementById('pathBtn');
+                pathBtn.classList.remove('active');
+                pathBtn.textContent = 'Path Mode: OFF';
+            }
+            if (poisonMode) {
+                poisonMode = false;
+                document.body.classList.remove('poison-mode');
+                const poisonBtn = document.getElementById('poisonBtn');
+                poisonBtn.classList.remove('active');
+                poisonBtn.textContent = 'Poison Mode: OFF';
+            }
+
+            // Activate drag mode button
+            const dragBtn = document.getElementById('dragBtn');
+            dragBtn.classList.add('active');
+            dragBtn.textContent = 'Drag Mode: ON';
         }
 
         // Toggle arrow drawing mode
@@ -320,16 +378,30 @@
             arrowMode = !arrowMode;
             arrowStart = null;
 
-            // Disable other modes if switching to arrow mode
-            if (arrowMode && pathMode) {
-                togglePathMode();
-            }
-            if (arrowMode && poisonMode) {
-                togglePoisonMode();
-            }
-
             const modeBtn = document.getElementById('modeBtn');
             if (arrowMode) {
+                // Disable other modes
+                if (dragMode) {
+                    dragMode = false;
+                    const dragBtn = document.getElementById('dragBtn');
+                    dragBtn.classList.remove('active');
+                    dragBtn.textContent = 'Drag Mode: OFF';
+                }
+                if (pathMode) {
+                    pathMode = false;
+                    document.body.classList.remove('path-mode');
+                    const pathBtn = document.getElementById('pathBtn');
+                    pathBtn.classList.remove('active');
+                    pathBtn.textContent = 'Path Mode: OFF';
+                }
+                if (poisonMode) {
+                    poisonMode = false;
+                    document.body.classList.remove('poison-mode');
+                    const poisonBtn = document.getElementById('poisonBtn');
+                    poisonBtn.classList.remove('active');
+                    poisonBtn.textContent = 'Poison Mode: OFF';
+                }
+
                 document.body.classList.add('arrow-mode');
                 modeBtn.classList.add('active');
                 modeBtn.textContent = 'Arrow Mode: ON';
@@ -337,6 +409,9 @@
                 document.body.classList.remove('arrow-mode');
                 modeBtn.classList.remove('active');
                 modeBtn.textContent = 'Arrow Mode: OFF';
+
+                // Switch to drag mode when turning off
+                toggleDragMode();
             }
         }
 
@@ -344,26 +419,57 @@
         function togglePathMode() {
             pathMode = !pathMode;
 
-            // Disable other modes if switching to path mode
-            if (pathMode && arrowMode) {
-                toggleArrowMode();
-            }
-            if (pathMode && poisonMode) {
-                togglePoisonMode();
-            }
-
             const pathBtn = document.getElementById('pathBtn');
             if (pathMode) {
+                // Disable other modes
+                if (dragMode) {
+                    dragMode = false;
+                    const dragBtn = document.getElementById('dragBtn');
+                    dragBtn.classList.remove('active');
+                    dragBtn.textContent = 'Drag Mode: OFF';
+                }
+                if (arrowMode) {
+                    arrowMode = false;
+                    arrowStart = null;
+                    document.body.classList.remove('arrow-mode');
+                    const modeBtn = document.getElementById('modeBtn');
+                    modeBtn.classList.remove('active');
+                    modeBtn.textContent = 'Arrow Mode: OFF';
+                }
+                if (poisonMode) {
+                    poisonMode = false;
+                    document.body.classList.remove('poison-mode');
+                    const poisonBtn = document.getElementById('poisonBtn');
+                    poisonBtn.classList.remove('active');
+                    poisonBtn.textContent = 'Poison Mode: OFF';
+                }
+
                 document.body.classList.add('path-mode');
                 pathBtn.classList.add('active');
                 pathBtn.textContent = 'Path Mode: ON';
-                pathTiles = [];
-                // Clear any existing path arrows
-                clearPathArrows();
+
+                // Restore visual state for existing path
+                pathTiles.forEach((tile, index) => {
+                    if (index === pathTiles.length - 1) {
+                        // Last tile gets the green border
+                        tile.style.boxShadow = '0 0 0 3px #4CAF50';
+                    } else {
+                        // Other tiles don't need the border
+                        tile.style.boxShadow = '';
+                    }
+                });
             } else {
+                // Clean up visual state when leaving path mode
+                pathTiles.forEach(tile => {
+                    tile.style.boxShadow = '';
+                });
+
                 document.body.classList.remove('path-mode');
                 pathBtn.classList.remove('active');
                 pathBtn.textContent = 'Path Mode: OFF';
+
+                // Switch to drag mode when turning off
+                toggleDragMode();
             }
         }
 
@@ -371,16 +477,31 @@
         function togglePoisonMode() {
             poisonMode = !poisonMode;
 
-            // Disable arrow and path modes if switching to poison mode
-            if (poisonMode && arrowMode) {
-                toggleArrowMode();
-            }
-            if (poisonMode && pathMode) {
-                togglePathMode();
-            }
-
             const poisonBtn = document.getElementById('poisonBtn');
             if (poisonMode) {
+                // Disable other modes
+                if (dragMode) {
+                    dragMode = false;
+                    const dragBtn = document.getElementById('dragBtn');
+                    dragBtn.classList.remove('active');
+                    dragBtn.textContent = 'Drag Mode: OFF';
+                }
+                if (arrowMode) {
+                    arrowMode = false;
+                    arrowStart = null;
+                    document.body.classList.remove('arrow-mode');
+                    const modeBtn = document.getElementById('modeBtn');
+                    modeBtn.classList.remove('active');
+                    modeBtn.textContent = 'Arrow Mode: OFF';
+                }
+                if (pathMode) {
+                    pathMode = false;
+                    document.body.classList.remove('path-mode');
+                    const pathBtn = document.getElementById('pathBtn');
+                    pathBtn.classList.remove('active');
+                    pathBtn.textContent = 'Path Mode: OFF';
+                }
+
                 document.body.classList.add('poison-mode');
                 poisonBtn.classList.add('active');
                 poisonBtn.textContent = 'Poison Mode: ON';
@@ -388,6 +509,9 @@
                 document.body.classList.remove('poison-mode');
                 poisonBtn.classList.remove('active');
                 poisonBtn.textContent = 'Poison Mode: OFF';
+
+                // Switch to drag mode when turning off
+                toggleDragMode();
             }
         }
 
@@ -537,8 +661,15 @@
                     arrowStart.style.boxShadow = '';
                     arrowStart = null;
                 } else {
-                    // Complete the arrow
-                    createArrow(arrowStart, tile);
+                    // Check if arrow already exists
+                    const existingArrow = findArrow(arrowStart, tile);
+                    if (existingArrow) {
+                        // Remove existing arrow
+                        removeArrow(existingArrow);
+                    } else {
+                        // Create new arrow
+                        createArrow(arrowStart, tile);
+                    }
                     arrowStart.style.boxShadow = '';
                     arrowStart = null;
                 }
@@ -591,7 +722,7 @@
 
         // Handle mouse down on tile
         function handleMouseDown(e) {
-            if (arrowMode || pathMode || poisonMode) return;  // Don't drag in arrow, path, or poison mode
+            if (!dragMode) return;  // Only drag in drag mode
 
             e.preventDefault();
             draggedTile = e.target;
@@ -714,6 +845,25 @@
 
             // Create quadratic bezier curve path
             return `M ${fromPoint.x},${fromPoint.y} Q ${controlX},${controlY} ${toPoint.x},${toPoint.y}`;
+        }
+
+        // Find an arrow between two tiles
+        function findArrow(fromTile, toTile) {
+            return connections.find(conn =>
+                conn.from === fromTile && conn.to === toTile
+            );
+        }
+
+        // Remove an arrow
+        function removeArrow(connection) {
+            // Remove the SVG element
+            connection.line.remove();
+
+            // Remove from connections array
+            const index = connections.indexOf(connection);
+            if (index > -1) {
+                connections.splice(index, 1);
+            }
         }
 
         // Create an arrow between two tiles
