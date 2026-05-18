@@ -3,6 +3,7 @@
 \usepackage{tikz}
 \usepackage{xcolor}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{enumitem}
 
 % Define colors
@@ -72,14 +73,11 @@ You can only jump left, right, up, or down (not diagonal).}
       % Add START label
       \ifnum\row=0
         \ifnum\col=0
-          \node[font=\tiny\bfseries] at (\col*1.5+0.2, -\row*1.5+1.1) {START};
+          \node[font=\tiny\bfseries] at (\col*1.5+0.65, -\row*1.5+1.15) {START};
         \fi
       \fi
     }
   }
-
-  % Add puzzle number
-  \node[font=\Large\bfseries] at (3, 0.5) {Puzzle #1};
 \end{tikzpicture}
 }
 
