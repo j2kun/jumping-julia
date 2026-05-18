@@ -44,8 +44,18 @@
             pointer-events: none;
         }
 
-        .tile {
+        #tileContainer {
             position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .tile {
+            position: absolute;
             width: 115px;
             height: 115px;
             background: white;
@@ -111,6 +121,7 @@
             padding: 15px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
         }
 
         .button-row {
@@ -246,6 +257,9 @@
             <button class="reset-btn" onclick="resetTilePositions()">Reset Positions</button>
             <button class="reset-btn" onclick="resetPuzzle()">Reset Puzzle</button>
         </div>
+    </div>
+
+    <div id="tileContainer"></div>
 
     <svg id="arrowSvg" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 500;">
         <defs>
@@ -303,6 +317,7 @@
         let tileOriginalPositions = new Map();  // Map of tile -> {left, top}
         let poisonMode = false;
         let poisonedTiles = new Set();  // Set of tiles that are poisoned
+        let tileOffsets = new Map();  // Map of tile -> {offsetX, offsetY} from grid position (for dragged tiles)
 
         // Initialize with puzzle 1
         function init() {
@@ -314,6 +329,57 @@
         function setupDragListeners() {
             document.addEventListener('mousemove', handleMouseMove);
             document.addEventListener('mouseup', handleMouseUp);
+            window.addEventListener('resize', handleResize);
+        }
+
+        // Handle window resize (including browser zoom)
+        function handleResize() {
+            const grid = document.getElementById('grid');
+            const gridRect = grid.getBoundingClientRect();
+            const tileSize = 115;
+            const gap = 10;
+
+            // Update all tile positions
+            document.querySelectorAll('.tile').forEach(tile => {
+                const row = parseInt(tile.dataset.row);
+                const col = parseInt(tile.dataset.col);
+
+                // Calculate the default grid position for this tile
+                const defaultLeft = gridRect.left + col * (tileSize + gap);
+                const defaultTop = gridRect.top + row * (tileSize + gap);
+
+                // Check if tile has been moved by user
+                const offset = tileOffsets.get(tile);
+                if (offset) {
+                    // Tile has been moved - apply offset from grid position
+                    tile.style.left = (defaultLeft + offset.offsetX) + 'px';
+                    tile.style.top = (defaultTop + offset.offsetY) + 'px';
+                } else {
+                    // Tile is in default position - just update to new grid position
+                    tile.style.left = defaultLeft + 'px';
+                    tile.style.top = defaultTop + 'px';
+                }
+
+                // Update original positions map for reset functionality
+                tileOriginalPositions.set(tile, {
+                    left: defaultLeft + 'px',
+                    top: defaultTop + 'px'
+                });
+            });
+
+            // Update all arrows
+            connections.forEach(conn => {
+                const points = getConnectionPoint(conn.from, conn.to);
+                const pathData = getCurvedPath(points.from, points.to);
+                conn.line.setAttribute('d', pathData);
+            });
+
+            // Update path arrows
+            pathConnections.forEach(conn => {
+                const points = getConnectionPoint(conn.from, conn.to);
+                const pathData = getCurvedPath(points.from, points.to);
+                conn.line.setAttribute('d', pathData);
+            });
         }
 
         // Load a preset puzzle
@@ -549,6 +615,9 @@
 
         // Reset tile positions to original grid layout
         function resetTilePositions() {
+            // Clear all tile offsets
+            tileOffsets.clear();
+
             tileOriginalPositions.forEach((pos, tile) => {
                 tile.style.left = pos.left;
                 tile.style.top = pos.top;
@@ -573,6 +642,7 @@
 
             // Clear position tracking
             tileOriginalPositions.clear();
+            tileOffsets.clear();
             connections = [];
             pathConnections = [];
             pathTiles = [];
@@ -620,7 +690,7 @@
                     tile.addEventListener('mousedown', handleMouseDown);
                     tile.addEventListener('click', handleTileClick);
 
-                    document.body.appendChild(tile);
+                    document.getElementById('tileContainer').appendChild(tile);
                 }
             }
         }
@@ -753,6 +823,33 @@
             if (!draggedTile) return;
 
             draggedTile.classList.remove('dragging');
+
+            // Calculate offset from original grid position
+            const grid = document.getElementById('grid');
+            const gridRect = grid.getBoundingClientRect();
+            const tileSize = 115;
+            const gap = 10;
+
+            const row = parseInt(draggedTile.dataset.row);
+            const col = parseInt(draggedTile.dataset.col);
+
+            const defaultLeft = gridRect.left + col * (tileSize + gap);
+            const defaultTop = gridRect.top + row * (tileSize + gap);
+
+            const currentLeft = parseFloat(draggedTile.style.left);
+            const currentTop = parseFloat(draggedTile.style.top);
+
+            const offsetX = currentLeft - defaultLeft;
+            const offsetY = currentTop - defaultTop;
+
+            // Store offset if tile has been moved from default position
+            if (Math.abs(offsetX) > 1 || Math.abs(offsetY) > 1) {
+                tileOffsets.set(draggedTile, { offsetX, offsetY });
+            } else {
+                // Remove offset if tile is back at default position
+                tileOffsets.delete(draggedTile);
+            }
+
             draggedTile = null;
         }
 
