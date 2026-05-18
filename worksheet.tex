@@ -1,0 +1,162 @@
+\documentclass[12pt]{article}
+\usepackage[a4paper, margin=1cm]{geometry}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{enumitem}
+
+% Define colors
+\definecolor{startgreen}{RGB}{144,238,144}
+\definecolor{goalyellow}{RGB}{255,215,0}
+
+\begin{document}
+\pagestyle{empty}
+
+% Front page - Four puzzles
+\begin{center}
+{\Huge\bfseries Jumping Julia Puzzles!}
+
+\vspace{0.3cm}
+
+{\Large Help Julia jump from START to GOAL!}
+
+\vspace{0.2cm}
+
+{\large The number on each square tells you how many squares to jump.\\
+You can only jump left, right, up, or down (not diagonal).}
+\end{center}
+
+\vspace{0.5cm}
+
+% Define command to draw a puzzle
+\newcommand{\drawpuzzle}[2]{
+\begin{tikzpicture}[scale=1.2]
+  \foreach \row in {0,1,2,3} {
+    \foreach \col in {0,1,2,3} {
+      \pgfmathtruncatemacro{\idx}{\row*4+\col}
+      \pgfmathsetmacro{\val}{#2[\idx]}
+
+      % Determine fill color
+      \ifnum\row=0
+        \ifnum\col=0
+          \def\fillcol{startgreen}
+        \else
+          \def\fillcol{white}
+        \fi
+      \else
+        \ifnum\row=3
+          \ifnum\col=3
+            \def\fillcol{goalyellow}
+          \else
+            \def\fillcol{white}
+          \fi
+        \else
+          \def\fillcol{white}
+        \fi
+      \fi
+
+      % Draw square
+      \draw[line width=2pt, fill=\fillcol] (\col*1.5, -\row*1.5) rectangle +(1.3, 1.3);
+
+      % Add number or star
+      \ifnum\row=3
+        \ifnum\col=3
+          \node at (\col*1.5+0.65, -\row*1.5+0.65) {\Huge $\bigstar$};
+        \else
+          \node at (\col*1.5+0.65, -\row*1.5+0.65) {\Huge\bfseries \pgfmathprintnumber[int trunc]{\val}};
+        \fi
+      \else
+        \node at (\col*1.5+0.65, -\row*1.5+0.65) {\Huge\bfseries \pgfmathprintnumber[int trunc]{\val}};
+      \fi
+
+      % Add START label
+      \ifnum\row=0
+        \ifnum\col=0
+          \node[font=\tiny\bfseries] at (\col*1.5+0.2, -\row*1.5+1.1) {START};
+        \fi
+      \fi
+    }
+  }
+
+  % Add puzzle number
+  \node[font=\Large\bfseries] at (3, 0.5) {Puzzle #1};
+\end{tikzpicture}
+}
+
+% Layout: 2x2 grid of puzzles
+\begin{center}
+\begin{tabular}{p{8cm}p{8cm}}
+% Puzzle 1
+\drawpuzzle{1}{{2,1,3,3,2,1,3,1,2,2,2,2,1,3,2,0}} &
+% Puzzle 2
+\drawpuzzle{2}{{1,2,1,3,3,1,2,1,1,3,1,2,2,1,3,0}} \\[1cm]
+
+% Puzzle 3
+\drawpuzzle{3}{{3,1,2,1,1,2,3,2,2,1,1,3,1,2,1,0}} &
+% Puzzle 4
+\drawpuzzle{4}{{2,3,1,2,1,1,2,3,3,2,1,1,2,1,2,0}}
+\end{tabular}
+\end{center}
+
+\vspace{0.5cm}
+
+\begin{center}
+{\large Draw your path with arrows! $\rightarrow$ $\leftarrow$ $\uparrow$ $\downarrow$}
+\end{center}
+
+\newpage
+
+% Back page - Questions
+\begin{center}
+{\Huge\bfseries Think About It!}
+\end{center}
+
+\vspace{1cm}
+
+\begin{enumerate}[leftmargin=2cm, itemsep=1.5cm, label=\textbf{\arabic*.}]
+
+\item \textbf{Look at Puzzle 1.}
+
+\begin{enumerate}[label=\alph*), itemsep=0.8cm]
+\item Circle all the squares Julia can jump to from START.
+
+\item How many moves does it take to reach GOAL? \underline{\hspace{3cm}}
+\end{enumerate}
+
+\vspace{0.5cm}
+
+\item \textbf{Drawing Time!}
+
+Draw a 4$\times$4 grid below and create your own jumping puzzle. Make sure there is a way to get from START to GOAL!
+
+\vspace{5cm}
+
+\item \textbf{True or False?}
+
+\begin{enumerate}[label=\alph*), itemsep=0.8cm]
+\item If a square has the number 2, you can jump 2 squares in any direction. \hfill \underline{\hspace{2cm}}
+
+\item You can jump diagonally (corner to corner). \hfill \underline{\hspace{2cm}}
+
+\item The GOAL square always has a star. \hfill \underline{\hspace{2cm}}
+\end{enumerate}
+
+\vspace{0.5cm}
+
+\item \textbf{Challenge!}
+
+Can you find a puzzle that has NO solution? Draw it below!
+
+\vspace{4cm}
+
+\item \textbf{Bonus Question:}
+
+If you are on a square with the number 3, how many different squares might you be able to jump to? (Remember: up, down, left, or right!)
+
+\vspace{0.5cm}
+
+Answer: \underline{\hspace{5cm}}
+
+\end{enumerate}
+
+\end{document}
